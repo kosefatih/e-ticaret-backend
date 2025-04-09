@@ -1,4 +1,3 @@
-// routes/cartRoutes.js
 import express from 'express';
 import {
   getCartItems,
@@ -9,7 +8,6 @@ import {
 
 const router = express.Router();
 
-// Sepet işlemleri
 router.get('/:userId', getCartItems);
 router.post('/:userId', addToCart);
 router.delete('/:userId/:productId', removeFromCart);

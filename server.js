@@ -1,4 +1,3 @@
-// server.js
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -6,9 +5,9 @@ import cors from 'cors';
 import authRoutes from './routes/authRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
-import reviewRoutes from './routes/reviewRoutes.js'; // Yorumlar için route ekle
-import favoriteRoutes from './routes/favoriteRoutes.js'; // Favoriler için route ekle
-import orderRoutes from './routes/orderRoutes.js'; // Siparişler için route ekle
+import reviewRoutes from './routes/reviewRoutes.js';
+import favoriteRoutes from './routes/favoriteRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 dotenv.config();
 
@@ -32,12 +31,12 @@ mongoose.connect(process.env.MONGO_URI,)
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/reviews', reviewRoutes); // Yorumlar için route ekle
-app.use('/api/favorites', favoriteRoutes); // Favoriler için route ekle
-app.use('/api/orders', orderRoutes); // Siparişler için route ekle
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Server başlat
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT} 🚀`);
+  console.log(`Server is running on port ${PORT}`);
 });

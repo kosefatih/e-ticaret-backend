@@ -1,4 +1,3 @@
-// controllers/productController.js
 import Product from '../models/Product.js';
 
 // Tüm ürünleri listele
