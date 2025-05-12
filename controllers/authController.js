@@ -9,33 +9,34 @@ const generateToken = (userId) => {
 };
 
 export const register = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, role } = req.body;
 
   try {
-    // Kullanıcı var mı kontrolü
+    // Email kontrolü
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'Email already registered' });
 
-    // Şifreyi hashle
+    // Şifre hashle
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Yeni kullanıcı oluştur
+    // Kullanıcı oluştur
     const newUser = new User({
       username,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      role: ['customer', 'seller', 'admin'].includes(role) ? role : 'customer' // role doğrulama
     });
 
     await newUser.save();
 
-    // Token üret
     const token = generateToken(newUser._id);
 
     res.status(201).json({
       user: {
         id: newUser._id,
         username: newUser.username,
-        email: newUser.email
+        email: newUser.email,
+        role: newUser.role
       },
       token
     });
@@ -48,22 +49,20 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Kullanıcıyı bul
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Şifre kontrolü
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
-    // Token oluştur
     const token = generateToken(user._id);
 
     res.status(200).json({
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        role: user.role
       },
       token
     });

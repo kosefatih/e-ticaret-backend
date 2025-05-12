@@ -17,6 +17,32 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  role: {
+    type: String,
+    enum: ['customer', 'seller', 'admin'],
+    default: 'customer'
+  },
+  address: {
+    type: String
+  },
+  followers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  personalInfo: {
+    fullName: String,
+    phone: String
+  },
+  
+  deliveryAddresses: [
+    {
+      label: String,        
+      fullAddress: String,
+      city: String,
+      district: String,
+      postalCode: String
+    }
+  ],
   cart: [
     {
       productId: {
