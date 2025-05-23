@@ -7,18 +7,14 @@ const productSchema = new mongoose.Schema({
     trim: true
   },
   description: String,
-  category: { type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Category', 
-    required: true 
+  category: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: true
   },
   subcategory: {
     type: String,
-    required: true // örnek: "Sebze Tohumu", "Meyve Tohumu"
-  },
-  attributes: {
-    type: Map,
-    of: String
-    // örnek kullanım: attributes: { mevsim: "İlkbahar", tür: "Organik" }
+    required: true
   },
   price: {
     type: Number,
@@ -36,7 +32,7 @@ const productSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  images: [String] // Görsel URL'leri için
+  images: [String]
 }, {
   timestamps: true
 });

@@ -9,7 +9,7 @@ const generateToken = (userId) => {
 };
 
 export const register = async (req, res) => {
-  const { username, email, password, role } = req.body;
+  const { username, email, password, role, phone } = req.body;
 
   try {
     // Email kontrolü
@@ -24,7 +24,10 @@ export const register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: ['customer', 'seller', 'admin'].includes(role) ? role : 'customer' // role doğrulama
+      role: ['customer', 'seller', 'admin'].includes(role) ? role : 'customer',
+      personalInfo: {
+        phone
+      }
     });
 
     await newUser.save();
@@ -36,7 +39,8 @@ export const register = async (req, res) => {
         id: newUser._id,
         username: newUser.username,
         email: newUser.email,
-        role: newUser.role
+        role: newUser.role,
+        phone: newUser.personalInfo.phone
       },
       token
     });
@@ -44,6 +48,7 @@ export const register = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 export const login = async (req, res) => {
   const { email, password } = req.body;

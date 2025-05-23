@@ -9,9 +9,11 @@ export const createCategory = async (req, res) => {
     await category.save();
     res.status(201).json(category);
   } catch (err) {
+    console.error("Kategori oluşturma hatası:", err); // <== bu satırı ekle
     res.status(500).json({ message: 'Kategori oluşturulamadı', error: err });
   }
 };
+
 
 // Tüm kategorileri getir (hiyerarşik yapıyla)
 export const getAllCategories = async (req, res) => {

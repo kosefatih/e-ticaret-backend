@@ -1,17 +1,13 @@
 import Product from '../models/Product.js';
 
-// Tüm ürünleri listele (filtre desteği dahil)
+// Tüm ürünleri listele (filtre desteği: kategori ve altkategori)
 export const getAllProducts = async (req, res) => {
   try {
-    const { category, subcategory, ...attributeFilters } = req.query;
+    const { category, subcategory } = req.query;
 
     const query = {};
     if (category) query.category = category;
     if (subcategory) query.subcategory = subcategory;
-
-    Object.keys(attributeFilters).forEach(key => {
-      query[`attributes.${key}`] = attributeFilters[key];
-    });
 
     const products = await Product.find(query).sort({ createdAt: -1 });
     res.status(200).json(products);
@@ -30,7 +26,6 @@ export const createProduct = async (req, res) => {
     price,
     discountPrice,
     stock,
-    attributes,
     seller,
     images
   } = req.body;
@@ -44,7 +39,6 @@ export const createProduct = async (req, res) => {
       price,
       discountPrice,
       stock,
-      attributes,
       seller,
       images
     });
