@@ -1,0 +1,27 @@
+# Bağımlılıklar
+node_modules/
+
+# Ortam değişkenleri
+.env
+.env.local
+
+# Log dosyaları
+*.log
+
+# IDE özel dosyaları
+.vscode/
+.idea/
+
+# Sistem dosyaları
+.DS_Store
+
+# Build/derleme çıktıları
+dist/
+build/
+
+# Test çıktıları
+coverage/
+
+# Package lock (eğer yarn kullanıyorsanız)
+package-lock.json
+yarn.lock
