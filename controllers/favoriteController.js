@@ -38,3 +38,18 @@ export const getUserFavorites = async (req, res) => {
     res.status(500).json({ message: "Favoriler alınamadı", error: err.message });
   }
 };
+
+// favoritesController.js
+export const checkFavoriteStatus = async (req, res) => {
+  const { userId, productId } = req.params;
+
+  try {
+    const exists = await Favorite.exists({ user: userId, product: productId });
+    res.status(200).json({ isFavorite: exists });
+  } catch (err) {
+    res.status(500).json({ 
+      message: "Favori durumu kontrol edilemedi", 
+      error: err.message 
+    });
+  }
+};
