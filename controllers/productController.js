@@ -1,4 +1,5 @@
 import Product from '../models/Product.js';
+import Category from '../models/Category.js'; // Added to populate category name
 
 // Tüm ürünleri listele (filtre desteği: kategori ve altkategori)
 export const getAllProducts = async (req, res) => {
@@ -9,7 +10,9 @@ export const getAllProducts = async (req, res) => {
     if (category) query.category = category;
     if (subcategory) query.subcategory = subcategory;
 
-    const products = await Product.find(query).sort({ createdAt: -1 });
+    const products = await Product.find(query)
+      .populate('category', 'name') // Populate category name
+      .sort({ createdAt: -1 });
     res.status(200).json(products);
   } catch (err) {
     res.status(500).json({ message: 'Ürünler getirilirken hata oluştu', error: err });
@@ -56,7 +59,8 @@ export const updateProduct = async (req, res) => {
   const updateData = req.body;
 
   try {
-    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true });
+    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true })
+      .populate('category', 'name');
 
     if (!updatedProduct) {
       return res.status(404).json({ message: 'Ürün bulunamadı' });
@@ -89,12 +93,45 @@ export const deleteProduct = async (req, res) => {
 export const getProductsByCategory = async (req, res) => {
   try {
     const { categoryName } = req.params;
-    const products = await Product.find({ category: categoryName });
+    const products = await Product.find({ category: categoryName })
+      .populate('category', 'name');
     res.status(200).json(products);
   } catch (error) {
     res.status(500).json({
       message: 'Kategoriye göre ürünler getirilirken hata oluştu',
       error,
     });
+  }
+};
+
+// Ürünleri arama terimiyle filtrele
+export const searchProducts = async (req, res) => {
+  try {
+    const { searchTerm } = req.query;
+
+    if (!searchTerm) {
+      return res.status(400).json({ message: 'Arama terimi gereklidir' });
+    }
+
+    // Case-insensitive search with partial match
+    const searchRegex = new RegExp(searchTerm, 'i');
+
+    // Find categories matching the search term
+    const matchingCategories = await Category.find({ name: searchRegex }).select('_id');
+
+    // Search products by name, subcategory, or category
+    const products = await Product.find({
+      $or: [
+        { name: searchRegex },
+        { subcategory: searchRegex },
+        { category: { $in: matchingCategories.map(cat => cat._id) } }
+      ]
+    })
+      .populate('category', 'name')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(products);
+  } catch (err) {
+    res.status(500).json({ message: 'Ürünler aranırken hata oluştu', error: err });
   }
 };
