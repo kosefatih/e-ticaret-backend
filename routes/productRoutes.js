@@ -4,7 +4,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  getProductsByCategory,
+  getProductsByCategoryId,
   searchProducts // Added new endpoint
 } from '../controllers/productController.js';
 
@@ -14,7 +14,7 @@ router.get('/', getAllProducts);
 router.post('/', createProduct);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
-router.get('/category/:categoryName', getProductsByCategory);
+router.get('/category/:categoryId', getProductsByCategoryId);
 router.get('/search', searchProducts); // Added search route
 
 export default router;

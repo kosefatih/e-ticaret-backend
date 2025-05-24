@@ -89,17 +89,27 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-// Kategoriye göre ürün getir
-export const getProductsByCategory = async (req, res) => {
+
+// Kategori ID'sine göre ürün getir
+export const getProductsByCategoryId = async (req, res) => {
   try {
-    const { categoryName } = req.params;
-    const products = await Product.find({ category: categoryName })
+    const { categoryId } = req.params;
+    
+    // Kategorinin varlığını kontrol et
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({ message: 'Kategori bulunamadı' });
+    }
+
+    // Kategori ID'sine göre ürünleri getir
+    const products = await Product.find({ category: categoryId })
       .populate('category', 'name');
+    
     res.status(200).json(products);
   } catch (error) {
     res.status(500).json({
       message: 'Kategoriye göre ürünler getirilirken hata oluştu',
-      error,
+      error: error.message, // Hata mesajını daha detaylı döndür
     });
   }
 };
