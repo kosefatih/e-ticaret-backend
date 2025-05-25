@@ -12,10 +12,10 @@ category: [{
     ref: 'Category',
     required: true
   }], //
-  subcategory: {
-    type: String,
-    required: true
-  },
+  subcategory: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Category', 
+    required: true },
   price: {
     type: Number,
     required: true
@@ -32,8 +32,15 @@ category: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  images: [String]
-}, {
+  images: [String],
+  status: { 
+    type: String, 
+    enum: ['active', 'inactive', 'onDiscount'], 
+    default: 'active',
+    required: true 
+  },
+}, 
+{
   timestamps: true
 });
 

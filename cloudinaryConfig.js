@@ -3,9 +3,9 @@ import { v2 as cloudinary } from 'cloudinary';
 
 try {
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: "dbqvtrvui",
+    api_key: "862886549597472",
+    api_secret: "D0FbIMHXiY0Xuyd8iInmTVTN2s0",
   });
 } catch (err) {
   console.error('Cloudinary yapılandırması başarısız:', err.message);

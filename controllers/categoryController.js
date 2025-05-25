@@ -1,12 +1,29 @@
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
 
-// Kategori oluştur
+
+// Kategori veya alt kategori oluştur
 export const createCategory = async (req, res) => {
   try {
     const { name, parent } = req.body;
 
-    // Eğer parent belirtilmişse geçerli olup olmadığını kontrol et
+    // Kategori adı zorunlu
+    if (!name) {
+      return res.status(400).json({ message: 'Kategori adı zorunlu' });
+    }
+
+    // Kategori adı kontrolü (case-insensitive, aynı seviyede benzersizlik)
+    const existingCategory = await Category.findOne({ 
+      name: { $regex: `^${name}$`, $options: 'i' },
+      parent: parent || null // Aynı parent altında benzersizlik kontrolü
+    });
+    if (existingCategory) {
+      return res.status(400).json({ 
+        message: 'Bu isimde bir kategori veya alt kategori zaten mevcut' 
+      });
+    }
+
+    // Eğer parent belirtilmişse, geçerli olup olmadığını kontrol et
     if (parent) {
       const parentCategory = await Category.findById(parent);
       if (!parentCategory) {
@@ -14,20 +31,37 @@ export const createCategory = async (req, res) => {
       }
     }
 
-    // Kategori adı kontrolü (case-insensitive)
-    const existingCategory = await Category.findOne({ 
-      name: { $regex: `^${name}$`, $options: 'i' } 
+    // Yeni kategori veya alt kategori oluştur
+    const category = new Category({ 
+      name, 
+      parent: parent || null, 
+      subcategories: [] 
     });
-    if (existingCategory) {
-      return res.status(400).json({ message: 'Bu isimde bir kategori zaten mevcut' });
+    await category.save();
+
+    // Eğer parent varsa, parent kategorinin subcategories dizisine ekle
+    if (parent) {
+      await Category.findByIdAndUpdate(
+        parent,
+        { $addToSet: { subcategories: category._id } },
+        { new: true }
+      );
+      return res.status(201).json({ 
+        message: 'Alt kategori başarıyla oluşturuldu', 
+        category 
+      });
     }
 
-    const category = new Category({ name, parent: parent || null });
-    await category.save();
-    res.status(201).json(category);
+    res.status(201).json({ 
+      message: 'Kategori başarıyla oluşturuldu', 
+      category 
+    });
   } catch (err) {
     console.error("Kategori oluşturma hatası:", err);
-    res.status(500).json({ message: 'Kategori oluşturulamadı', error: err.message });
+    res.status(500).json({ 
+      message: 'Kategori veya alt kategori oluşturulamadı', 
+      error: err.message 
+    });
   }
 };
 
@@ -35,7 +69,9 @@ export const createCategory = async (req, res) => {
 export const getCategoryById = async (req, res) => {
   try {
     const { id } = req.params;
-    const category = await Category.findById(id).populate('parent', 'name');
+    const category = await Category.findById(id)
+      .populate('parent', 'name')
+      .populate('subcategories', 'name'); // subcategories populate edildi
     
     if (!category) {
       return res.status(404).json({ message: 'Kategori bulunamadı' });
@@ -53,7 +89,9 @@ export const getCategoryById = async (req, res) => {
 // Tüm kategorileri getir (hiyerarşik yapıyla)
 export const getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find().populate('parent', 'name');
+    const categories = await Category.find()
+      .populate('parent', 'name')
+      .populate('subcategories', 'name'); // subcategories populate edildi
     res.status(200).json(categories);
   } catch (err) {
     res.status(500).json({ 
@@ -67,9 +105,13 @@ export const getAllCategories = async (req, res) => {
 export const getSubcategories = async (req, res) => {
   try {
     const { parentId } = req.params;
-    const subcategories = await Category.find({ parent: parentId });
+    const parentCategory = await Category.findById(parentId).populate('subcategories', 'name');
     
-    res.status(200).json(subcategories);
+    if (!parentCategory) {
+      return res.status(404).json({ message: 'Üst kategori bulunamadı' });
+    }
+    
+    res.status(200).json(parentCategory.subcategories);
   } catch (err) {
     res.status(500).json({ 
       message: 'Alt kategoriler getirilirken hata oluştu',
@@ -97,8 +139,19 @@ export const deleteCategory = async (req, res) => {
       });
     }
 
-    // Alt kategorileri de sil (opsiyonel - isteğe bağlı olarak kaldırılabilir)
-    await Category.deleteMany({ parent: id });
+    // Üst kategoriden bu kategoriyi kaldır
+    if (category.parent) {
+      await Category.findByIdAndUpdate(
+        category.parent,
+        { $pull: { subcategories: id } },
+        { new: true }
+      );
+    }
+
+    // Alt kategorileri sil
+    if (category.subcategories.length > 0) {
+      await Category.deleteMany({ _id: { $in: category.subcategories } });
+    }
 
     // Ana kategoriyi sil
     await Category.findByIdAndDelete(id);
@@ -123,10 +176,7 @@ export const getProductsByCategoryId = async (req, res) => {
     }
 
     // Kategori ve alt kategorilerindeki tüm ürünleri getir
-    const categoryIds = [id];
-    // Alt kategorileri bul
-    const subcategories = await Category.find({ parent: id });
-    subcategories.forEach(sub => categoryIds.push(sub._id));
+    const categoryIds = [id, ...category.subcategories]; // subcategories direkt kullanılabilir
 
     const products = await Product.find({ 
       category: { $in: categoryIds } 
