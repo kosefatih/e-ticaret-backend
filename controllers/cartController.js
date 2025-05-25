@@ -1,5 +1,6 @@
 import Cart from '../models/Cart.js';
 import Product from '../models/Product.js';
+import Order from '../models/Order.js';
 
 // Kullanıcının sepetindeki ürünleri listele
 export const getCartItems = async (req, res) => {
@@ -101,5 +102,52 @@ export const updateCartQuantity = async (req, res) => {
     res.status(200).json(cart);
   } catch (err) {
     res.status(500).json({ message: 'Error updating cart quantity' });
+  }
+};
+
+// Sepetten sipariş oluştur
+export const createOrderFromCart = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Kullanıcının sepetini bul
+    const cart = await Cart.findOne({ userId }).populate('items.productId');
+    
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ message: 'Sepet boş veya bulunamadı' });
+    }
+
+    // Toplam tutarı hesapla
+    let totalAmount = 0;
+    const orderProducts = cart.items.map(item => {
+      const productTotal = item.productId.price * item.quantity;
+      totalAmount += productTotal;
+      
+      return {
+        product: item.productId._id,
+        quantity: item.quantity
+      };
+    });
+
+    // Yeni sipariş oluştur
+    const newOrder = new Order({
+      user: userId,
+      products: orderProducts,
+      totalAmount,
+      status: 'hazırlanıyor'
+    });
+
+    await newOrder.save();
+
+    // Sepeti temizle
+    cart.items = [];
+    await cart.save();
+
+    res.status(201).json({
+      message: 'Sipariş başarıyla oluşturuldu',
+      order: newOrder
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Sipariş oluşturulurken bir hata oluştu', error: err.message });
   }
 };

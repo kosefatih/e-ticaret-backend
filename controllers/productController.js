@@ -1,5 +1,12 @@
 import Product from '../models/Product.js';
 import Category from '../models/Category.js'; // Added to populate category name
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../cloudinaryConfig.js';
+
+// Multer yapılandırması
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Tüm ürünleri listele (filtre desteği: kategori ve altkategori)
 export const getAllProducts = async (req, res) => {
@@ -19,22 +26,15 @@ export const getAllProducts = async (req, res) => {
   }
 };
 
-// Yeni ürün ekle
+// Ürün oluşturma (resim yükleme ile)
 export const createProduct = async (req, res) => {
-  const {
-    name,
-    description,
-    category,
-    subcategory,
-    price,
-    discountPrice,
-    stock,
-    seller,
-    images
-  } = req.body;
+  // Multer middleware'i ile birden fazla resim yükleme
+  upload.array('image', 5)(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: 'Resim yüklenirken hata oluştu', error: err.message });
+    }
 
-  try {
-    const newProduct = new Product({
+    const {
       name,
       description,
       category,
@@ -42,15 +42,53 @@ export const createProduct = async (req, res) => {
       price,
       discountPrice,
       stock,
-      seller,
-      images
-    });
+      seller
+    } = req.body;
 
-    await newProduct.save();
-    res.status(201).json(newProduct);
-  } catch (err) {
-    res.status(500).json({ message: 'Ürün oluşturulurken hata oluştu', error: err });
-  }
+    try {
+      // Doğrulamalar
+      if (!Array.isArray(category)) {
+        return res.status(400).json({ message: 'Kategori bir dizi olmalıdır' });
+      }
+      if (!name || !price || !stock || !subcategory) {
+        return res.status(400).json({ message: 'Zorunlu alanlar eksik: name, price, stock veya subcategory' });
+      }
+
+      // Kategorilerin geçerli ObjectId olup olmadığını kontrol et
+      const isValidCategories = category.every(id => mongoose.Types.ObjectId.isValid(id));
+      if (!isValidCategories) {
+        return res.status(400).json({ message: 'Geçersiz kategori ID' });
+      }
+
+      // Resimleri Cloudinary'e yükle
+      const imageUrls = [];
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          const result = await cloudinary.uploader.upload_stream({ resource_type: 'image' })
+            .end(file.buffer);
+          imageUrls.push(result.secure_url);
+        }
+      }
+
+      const newProduct = new Product({
+        name,
+        description,
+        category, // Dizi olarak kaydedilir
+        subcategory,
+        price,
+        discountPrice,
+        stock,
+        seller,
+        images: imageUrls
+      });
+
+      await newProduct.save();
+      const populatedProduct = await Product.findById(newProduct._id).populate('category', 'name');
+      res.status(201).json(populatedProduct);
+    } catch (err) {
+      res.status(500).json({ message: 'Ürün oluşturulurken hata oluştu', error: err.message });
+    }
+  });
 };
 
 // Ürünü güncelle

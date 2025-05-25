@@ -7,11 +7,11 @@ const productSchema = new mongoose.Schema({
     trim: true
   },
   description: String,
-  category: {
+category: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
     required: true
-  },
+  }], //
   subcategory: {
     type: String,
     required: true
