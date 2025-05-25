@@ -53,3 +53,21 @@ export const updateOrderStatus = async (req, res) => {
     res.status(500).json({ message: "Durum güncellenemedi", error: err.message });
   }
 };
+
+// Satıcının siparişlerini getir
+export const getSellerOrders = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+
+    const orders = await Order.find({
+      'products.seller': sellerId
+    })
+    .populate('user', 'username email')
+    .populate('products.product')
+    .populate('products.seller', 'username email');
+
+    res.status(200).json(orders);
+  } catch (err) {
+    res.status(500).json({ message: "Satıcı siparişleri alınamadı", error: err.message });
+  }
+};

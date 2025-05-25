@@ -113,7 +113,7 @@ export const createOrderFromCart = async (req, res) => {
     // Kullanıcının sepetini bul
     const cart = await Cart.findOne({ userId }).populate({
       path: 'items.productId',
-      select: 'price name' // Sadece ihtiyacımız olan alanları seçiyoruz
+      select: 'price name seller' // seller bilgisini de seçiyoruz
     });
     
     if (!cart) {
@@ -124,7 +124,7 @@ export const createOrderFromCart = async (req, res) => {
       return res.status(400).json({ message: 'Sepetiniz boş' });
     }
 
-    // Toplam tutarı hesapla
+    // Toplam tutarı hesapla ve ürünleri satıcılara göre grupla
     let totalAmount = 0;
     const orderProducts = cart.items.map(item => {
       if (!item.productId) {
@@ -135,7 +135,8 @@ export const createOrderFromCart = async (req, res) => {
       
       return {
         product: item.productId._id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        seller: item.productId.seller // Satıcı bilgisini ekliyoruz
       };
     });
 
@@ -156,6 +157,7 @@ export const createOrderFromCart = async (req, res) => {
     // Oluşturulan siparişi populate ederek döndür
     const populatedOrder = await Order.findById(newOrder._id)
       .populate('products.product')
+      .populate('products.seller', 'username email') // Satıcı bilgilerini de populate ediyoruz
       .populate('user', 'username email');
 
     res.status(201).json({
