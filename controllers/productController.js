@@ -21,14 +21,13 @@ const upload = multer({
   },
 }).array('images', 5); // Maksimum 5 resim
 
-// Tüm ürünleri listele (kategori ve alt kategori desteği)
+// Tüm ürünleri listele (kategori, alt kategori ve durum filtresi)
 export const getAllProducts = async (req, res) => {
   try {
-    const { category, subcategory } = req.query;
+    const { category, subcategory, status } = req.query;
 
     const query = {};
     if (category) {
-      // Kategori ve onun alt kategorilerini dahil et
       const categoryDoc = await Category.findById(category).select('subcategories');
       if (!categoryDoc) {
         return res.status(400).json({ message: 'Geçersiz kategori ID' });
@@ -36,12 +35,17 @@ export const getAllProducts = async (req, res) => {
       query.category = { $in: [category, ...categoryDoc.subcategories] };
     }
     if (subcategory) {
-      // Alt kategori ID'sini doğrula
       const subcategoryDoc = await Category.findById(subcategory);
       if (!subcategoryDoc || !subcategoryDoc.parent) {
         return res.status(400).json({ message: 'Geçersiz veya geçerli bir alt kategori değil' });
       }
       query.subcategory = subcategory;
+    }
+    if (status) {
+      if (!['active', 'inactive', 'onDiscount'].includes(status)) {
+        return res.status(400).json({ message: 'Geçersiz durum: active, inactive veya onDiscount olmalı' });
+      }
+      query.status = status;
     }
 
     const products = await Product.find(query)
@@ -62,7 +66,7 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ message: err.message });
     }
 
-    const { name, description, category, subcategory, price, discountPrice, stock, seller } =
+    const { name, description, category, subcategory, price, discountPrice, stock, seller, status } =
       req.body;
 
     try {
@@ -70,6 +74,20 @@ export const createProduct = async (req, res) => {
       if (!name || !price || !stock || !subcategory) {
         return res.status(400).json({
           message: 'Zorunlu alanlar eksik: name, price, stock veya subcategory',
+        });
+      }
+
+      // Durum doğrulaması
+      const validStatuses = ['active', 'inactive', 'onDiscount'];
+      const productStatus = status || 'active'; // Varsayılan olarak active
+      if (!validStatuses.includes(productStatus)) {
+        return res.status(400).json({
+          message: 'Geçersiz durum: active, inactive veya onDiscount olmalı',
+        });
+      }
+      if (productStatus === 'onDiscount' && (!discountPrice || parseFloat(discountPrice) >= parseFloat(price))) {
+        return res.status(400).json({
+          message: 'onDiscount durumunda discountPrice zorunlu ve price\'tan küçük olmalı',
         });
       }
 
@@ -103,14 +121,12 @@ export const createProduct = async (req, res) => {
           return res.status(400).json({ message: 'Geçersiz kategori ID' });
         }
 
-        // Alt kategorinin parent'ının category dizisinde olduğunu kontrol et
         if (!parsedCategory.includes(subcategoryDoc.parent.toString())) {
           return res.status(400).json({
             message: 'Alt kategorinin üst kategorisi, kategori listesinde olmalıdır',
           });
         }
       } else {
-        // Kategori belirtilmemişse, alt kategorinin parent'ını otomatik ekle
         parsedCategory = [subcategoryDoc.parent];
       }
 
@@ -154,6 +170,7 @@ export const createProduct = async (req, res) => {
         stock: parseInt(stock),
         seller,
         images: imageUrls,
+        status: productStatus,
       });
 
       await newProduct.save();
@@ -169,6 +186,47 @@ export const createProduct = async (req, res) => {
       });
     }
   });
+};
+
+// Ürün güncelleme
+export const updateProduct = async (req, res) => {
+  const { id } = req.params;
+  const { status, price, discountPrice, ...otherData } = req.body;
+
+  try {
+    // Durum doğrulaması
+    if (status) {
+      const validStatuses = ['active', 'inactive', 'onDiscount'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          message: 'Geçersiz durum: active, inactive veya onDiscount olmalı',
+        });
+      }
+      if (status === 'onDiscount') {
+        if (!discountPrice || parseFloat(discountPrice) >= parseFloat(price || req.body.price)) {
+          return res.status(400).json({
+            message: 'onDiscount durumunda discountPrice zorunlu ve price\'tan küçük olmalı',
+          });
+        }
+      }
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      { ...otherData, status, price: price ? parseFloat(price) : undefined, discountPrice: discountPrice ? parseFloat(discountPrice) : undefined },
+      { new: true }
+    )
+      .populate('category', 'name')
+      .populate('subcategory', 'name');
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: 'Ürün bulunamadı' });
+    }
+
+    res.status(200).json(updatedProduct);
+  } catch (err) {
+    res.status(500).json({ message: 'Ürün güncellenirken hata oluştu', error: err.message });
+  }
 };
 
 // Kategori ID'sine göre ürün getir
@@ -200,10 +258,18 @@ export const getProductsByCategoryId = async (req, res) => {
 // Ürünleri arama terimiyle filtrele
 export const searchProducts = async (req, res) => {
   try {
-    const { searchTerm } = req.query;
+    const { searchTerm, status } = req.query;
 
     if (!searchTerm) {
       return res.status(400).json({ message: 'Arama terimi gereklidir' });
+    }
+
+    const query = {};
+    if (status) {
+      if (!['active', 'inactive', 'onDiscount'].includes(status)) {
+        return res.status(400).json({ message: 'Geçersiz durum: active, inactive veya onDiscount olmalı' });
+      }
+      query.status = status;
     }
 
     // Case-insensitive search with partial match
@@ -213,13 +279,13 @@ export const searchProducts = async (req, res) => {
     const matchingCategories = await Category.find({ name: searchRegex }).select('_id');
 
     // Search products by name or category (including subcategories)
-    const products = await Product.find({
-      $or: [
-        { name: searchRegex },
-        { category: { $in: matchingCategories.map((cat) => cat._id) } },
-        { subcategory: { $in: matchingCategories.map((cat) => cat._id) } },
-      ],
-    })
+    query.$or = [
+      { name: searchRegex },
+      { category: { $in: matchingCategories.map((cat) => cat._id) } },
+      { subcategory: { $in: matchingCategories.map((cat) => cat._id) } },
+    ];
+
+    const products = await Product.find(query)
       .populate('category', 'name')
       .populate('subcategory', 'name')
       .sort({ createdAt: -1 });
@@ -230,26 +296,7 @@ export const searchProducts = async (req, res) => {
   }
 };
 
-// Ürün güncelleme ve silme fonksiyonları (değişmedi)
-export const updateProduct = async (req, res) => {
-  const { id } = req.params;
-  const updateData = req.body;
-
-  try {
-    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true })
-      .populate('category', 'name')
-      .populate('subcategory', 'name');
-
-    if (!updatedProduct) {
-      return res.status(404).json({ message: 'Ürün bulunamadı' });
-    }
-
-    res.status(200).json(updatedProduct);
-  } catch (err) {
-    res.status(500).json({ message: 'Ürün güncellenirken hata oluştu', error: err.message });
-  }
-};
-
+// Ürün silme (değişmedi)
 export const deleteProduct = async (req, res) => {
   const { id } = req.params;
 
@@ -265,3 +312,51 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ message: 'Ürün silinirken hata oluştu', error: err.message });
   }
 };
+
+export const getProductsBySellerId = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: 'Geçersiz kullanıcı ID’si' });
+    }
+
+    const products = await Product.find({ seller: sellerId })
+      .populate('category', 'name')
+      .populate('subcategory', 'name');
+
+    res.status(200).json(products);
+  } catch (err) {
+    console.error('getProductsBySellerId error:', err);
+    res.status(500).json({ message: 'Ürünler getirilirken hata oluştu', error: err.message });
+  }
+};
+
+
+// Ürün detayı getir
+export const getProductById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ID geçerliliği kontrolü
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Geçersiz ürün ID’si' });
+    }
+
+    // Ürünü bul ve category ile subcategory referanslarını populate et
+    const product = await Product.findById(id)
+      .populate('category', 'name')
+      .populate('subcategory', 'name')
+      .populate('seller', 'username email'); // isterseniz seller’dan da bilgi çekebilirsiniz
+
+    if (!product) {
+      return res.status(404).json({ message: 'Ürün bulunamadı' });
+    }
+
+    res.status(200).json(product);
+  } catch (err) {
+    console.error('getProductById error:', err);
+    res.status(500).json({ message: 'Ürün detayları getirilirken hata oluştu', error: err.message });
+  }
+};
+
