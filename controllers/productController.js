@@ -1,7 +1,6 @@
 import Product from '../models/Product.js';
 import Category from '../models/Category.js'; // Added to populate category name
 import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
 import cloudinary from '../cloudinaryConfig.js';
 
 // Multer yapılandırması

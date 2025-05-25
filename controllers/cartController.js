@@ -111,15 +111,25 @@ export const createOrderFromCart = async (req, res) => {
 
   try {
     // Kullanıcının sepetini bul
-    const cart = await Cart.findOne({ userId }).populate('items.productId');
+    const cart = await Cart.findOne({ userId }).populate({
+      path: 'items.productId',
+      select: 'price name' // Sadece ihtiyacımız olan alanları seçiyoruz
+    });
     
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ message: 'Sepet boş veya bulunamadı' });
+    if (!cart) {
+      return res.status(404).json({ message: 'Sepet bulunamadı' });
+    }
+
+    if (cart.items.length === 0) {
+      return res.status(400).json({ message: 'Sepetiniz boş' });
     }
 
     // Toplam tutarı hesapla
     let totalAmount = 0;
     const orderProducts = cart.items.map(item => {
+      if (!item.productId) {
+        throw new Error('Ürün bulunamadı');
+      }
       const productTotal = item.productId.price * item.quantity;
       totalAmount += productTotal;
       
@@ -143,11 +153,20 @@ export const createOrderFromCart = async (req, res) => {
     cart.items = [];
     await cart.save();
 
+    // Oluşturulan siparişi populate ederek döndür
+    const populatedOrder = await Order.findById(newOrder._id)
+      .populate('products.product')
+      .populate('user', 'username email');
+
     res.status(201).json({
       message: 'Sipariş başarıyla oluşturuldu',
-      order: newOrder
+      order: populatedOrder
     });
   } catch (err) {
-    res.status(500).json({ message: 'Sipariş oluşturulurken bir hata oluştu', error: err.message });
+    console.error('Sipariş oluşturma hatası:', err);
+    res.status(500).json({ 
+      message: 'Sipariş oluşturulurken bir hata oluştu', 
+      error: err.message 
+    });
   }
 };
