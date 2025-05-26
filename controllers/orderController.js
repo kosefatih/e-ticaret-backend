@@ -1,4 +1,5 @@
 import Order from "../models/Order.js";
+import Product from "../models/Product.js";
 
 export const createOrder = async (req, res) => {
   try {
@@ -40,13 +41,21 @@ export const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
     const { orderId } = req.params;
 
-    const order = await Order.findByIdAndUpdate(
-      orderId,
-      { status },
-      { new: true }
-    );
-
+    const order = await Order.findById(orderId).populate('products.product');
     if (!order) return res.status(404).json({ message: "Sipariş bulunamadı" });
+
+    // Eğer sipariş iptal ediliyorsa stokları geri ekle
+    if (status === "iptal" && order.status !== "iptal") {
+      for (const item of order.products) {
+        await Product.findByIdAndUpdate(
+          item.product._id,
+          { $inc: { stock: item.quantity } }
+        );
+      }
+    }
+
+    order.status = status;
+    await order.save();
 
     res.status(200).json(order);
   } catch (err) {

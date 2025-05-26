@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["hazırlanıyor", "kargoda", "teslim edildi"],
+      enum: ["hazırlanıyor", "kargoda", "teslim edildi", "iptal"],
       default: "hazırlanıyor",
     },
   },
